@@ -108,11 +108,11 @@ proc backPropagate*(self: Layer, prev: Layer, target: seq[float64], step: float6
     for i in 0..(self.prevLen - 1):
         result[i] = prev.neurons[i, 0] + result[i] / selfLen.float64
 
-proc train*(self: NeuralNetwork, step: float64, sample: Sample) =
+proc train*(self: NeuralNetwork, step: float64, sample: Sample): float64 =
     let outLen = self.layers[self.layers.len - 1].neurons.column(0).len
     var target: seq[float64]
     newSeq(target, outLen)
-    let result = self.run(sample.image).get()
+    let predict = self.run(sample.image).get()
     var loss: float64 = 0
     for i in 0..(outLen - 1):
         target[i] = if i.byte == sample.label:
@@ -120,8 +120,8 @@ proc train*(self: NeuralNetwork, step: float64, sample: Sample) =
         else:
             0
         # Record the actual loss of this pass
-        loss += crossEntropy(target[i], result[i])
-    echo "loss = ", loss / outLen.float64
+        loss += crossEntropy(target[i], predict[i])
     for i in 0..(self.layers.len - 2):
         let index = self.layers.len - i - 1
         target = self.layers[index].backPropagate(self.layers[index - 1], target, step)
+    return loss / outLen.float64
