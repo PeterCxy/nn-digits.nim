@@ -21,7 +21,7 @@ proc main() =
     let testSize = testDataSet.len
     for epoch in 0..max_epochs:
         for i in 0..(size - 1):
-            let loss = network.train(0.5, dataSet[i])
+            let loss = network.train(0.1, dataSet[i])
             stdout.eraseLine()
             stdout.write &"Epoch [{epoch}]: progress [{i}/{size}], loss = {loss}"
             stdout.flushFile()
