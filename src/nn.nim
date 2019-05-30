@@ -78,6 +78,7 @@ proc backPropagate*(self: Layer, prev: Layer, target: seq[float64], step: float6
     for i in 0..(self.prevLen - 1):
         result[i] = 0
     for i in 0..(self.neurons.column(0).len - 1):
+        # Note: weighted sum is activation BEFORE the sigmoid function
         # Derivative of loss function in terms of the activation of the current neuron
         let dEdO = dCrossEntropy(target[i], self.neurons[i, 0])
         # Derivative of the activation in terms of its input (weighted sum of previous layer)
@@ -85,8 +86,12 @@ proc backPropagate*(self: Layer, prev: Layer, target: seq[float64], step: float6
         let dOdO: float64 = self.d[i, 0]
         for j in 0..(self.prevLen - 1):
             # Calculate changes in terms of all the partial derivatives
+            # prev.neurons[j, 0] is the derivative of the weighted sum
+            # in terms of the activation of neuron j in previous layer
             let dW = dEdO * dOdO * prev.neurons[j, 0]
             # Change previous layer's activation proportional to weight
+            # the weight is the derivative of the weighted sum against
+            # the weight applied by the current neuron to neuron j in previous layer
             result[j] -= dEdO * dOdO * self.weights.get()[i, j]
             # Change weight proportional to activation
             self.weights.get()[i, j] -= step * (dW)
