@@ -25,7 +25,7 @@ proc makeLayer(len: int; prevLen: int): Layer =
     return Layer(
         prevLen: prevLen,
         neurons: constantMatrix(len, 1, 0.float64),
-        biases: constantMatrix(len, 1, 0.float64), # Not implemented yet
+        biases: randomMatrix(len, 1),
         d: constantMatrix(len, 1, 0.float64),
         weights: if prevLen == 0:
             none[Matrix[float64]]()
@@ -74,31 +74,39 @@ proc run*(self: NeuralNetwork, input: seq[byte]): Option[Vector[float64]] =
     return some(self.layers[self.layers.len - 1].neurons.column(0))
 
 proc backPropagate*(self: Layer, prev: Layer, target: seq[float64], step: float64): seq[float64] =
+    let selfLen = self.neurons.column(0).len
     newSeq(result, self.prevLen)
     for i in 0..(self.prevLen - 1):
         result[i] = 0
-    for i in 0..(self.neurons.column(0).len - 1):
+    for i in 0..(selfLen - 1):
         # Note: weighted sum is activation BEFORE the sigmoid function
         # Derivative of loss function in terms of the activation of the current neuron
         let dEdO = dCrossEntropy(target[i], self.neurons[i, 0])
         # Derivative of the activation in terms of its input (weighted sum of previous layer)
         # i.e. the derivative of the sigmoid function (calculated along with the activation)
         let dOdO: float64 = self.d[i, 0]
+        let dEdOdOdO: float64 = dEdO * dOdO
+        # Change in bias should be the previous two derivatives
+        # times the derivative of the weighted sum against the
+        # bias, which is basically 1. Note that biases do not
+        # directly correlate to one specific neuron in the previous
+        # layer, so we just do it here.
+        self.biases[i, 0] -= step * dEdOdOdO
         for j in 0..(self.prevLen - 1):
             # Calculate changes in terms of all the partial derivatives
             # prev.neurons[j, 0] is the derivative of the weighted sum
             # in terms of the activation of neuron j in previous layer
-            let dW = dEdO * dOdO * prev.neurons[j, 0]
+            let dW = dEdOdOdO * prev.neurons[j, 0]
             # Change previous layer's activation proportional to weight
             # the weight is the derivative of the weighted sum against
             # the weight applied by the current neuron to neuron j in previous layer
-            result[j] -= dEdO * dOdO * self.weights.get()[i, j]
+            result[j] -= dEdOdOdO * self.weights.get()[i, j]
             # Change weight proportional to activation
             self.weights.get()[i, j] -= step * (dW)
             
             #echo result[j]
     for i in 0..(self.prevLen - 1):
-        result[i] = prev.neurons[i, 0] + result[i] / self.neurons.column(0).len.float64
+        result[i] = prev.neurons[i, 0] + result[i] / selfLen.float64
 
 proc train*(self: NeuralNetwork, step: float64, sample: Sample) =
     let outLen = self.layers[self.layers.len - 1].neurons.column(0).len
