@@ -25,12 +25,12 @@ proc makeLayer(len: int; prevLen: int): Layer =
     return Layer(
         prevLen: prevLen,
         neurons: constantMatrix(len, 1, 0.float64),
-        biases: randomMatrix(len, 1),
+        biases: constantMatrix(len, 1, 0.float64),
         d: constantMatrix(len, 1, 0.float64),
         weights: if prevLen == 0:
             none[Matrix[float64]]()
         else:
-            some(randomMatrix(len, prevLen, rowMajor))
+            some(randomMatrix(len, prevLen, 0.1, rowMajor))
     )
 
 proc makeNeuralNetwork*(layerSizes: varargs[int]): NeuralNetwork =
