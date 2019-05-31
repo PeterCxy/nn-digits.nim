@@ -3,19 +3,22 @@ import neo
 import options, sugar, math
 
 type
-    Layer = ref object
+    # Abstract definition of a layer in neural network
+    AbsLayer = ref object of RootObj
         # prevLen = 0 means it is input layer
         prevLen: int
         # Column vector values represent the activation
         neurons*: Matrix[float64]
         d: Matrix[float64]
+    # A normal neural layer: no convolution, no fancy stuff
+    Layer = ref object of AbsLayer
         # every row represents the weight from the previous layer
         # to one neuron in the current layer
         weights: Option[Matrix[float64]]
         biases: Matrix[float64]
     NeuralNetwork* = ref object
         # The first layer is input layer, the last is output layer
-        layers: seq[Layer]
+        layers: seq[AbsLayer]
     Sample* = object
         image*: seq[byte]
         label*: byte
@@ -34,7 +37,7 @@ proc makeLayer(len: int; prevLen: int): Layer =
     )
 
 proc makeNeuralNetwork*(layerSizes: varargs[int]): NeuralNetwork =
-    var layers: seq[Layer]
+    var layers: seq[AbsLayer]
     newSeq(layers, layerSizes.len)
     result = NeuralNetwork(layers: layers)
     var prevLen = 0
@@ -49,7 +52,11 @@ proc crossEntropy(target: float64, predict: float64): float64 =
 proc dCrossEntropy(target: float64, predict: float64): float64 =
     - (target / (1e-15 + predict) + (1 - target) / (1e-15 + predict - 1))
 
-proc calculateActivation*(self: Layer, prev: Layer) =
+# Any implementation of AbsLayer should implement this function
+method calculateActivation*(self: AbsLayer, prev: AbsLayer) {.base.} =
+    discard
+# Implementation for a normal NN layer
+method calculateActivation*(self: Layer, prev: AbsLayer) =
     if self.prevLen == 0:
         return # We cannot propagate for input layer
     self.neurons = (self.weights.get() * prev.neurons + self.biases)
@@ -73,7 +80,11 @@ proc run*(self: NeuralNetwork, input: seq[byte]): Option[Vector[float64]] =
     # Now we have the output
     return some(self.layers[self.layers.len - 1].neurons.column(0))
 
-proc backPropagate*(self: Layer, prev: Layer, target: seq[float64], step: float64): seq[float64] =
+# Any implementation of AbsLayer should implement this function
+method backPropagate*(self: AbsLayer, prev: AbsLayer, target: seq[float64], step: float64): seq[float64] {.base.} =
+    return @[]
+# Implementation for a normal NN layer
+method backPropagate*(self: Layer, prev: AbsLayer, target: seq[float64], step: float64): seq[float64] =
     let selfLen = self.neurons.column(0).len
     newSeq(result, self.prevLen)
     for i in 0..(self.prevLen - 1):
