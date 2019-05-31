@@ -9,6 +9,7 @@ type
     AbsLayer = ref object of RootObj
         # prevLen = 0 means it is input layer
         prevLen: int
+        len: int
         # Column vector values represent the activation
         neurons*: Matrix[float64]
         d: Matrix[float64]
@@ -29,6 +30,7 @@ type
 proc makeLayer(len: int; prevLen: int): Layer =
     return Layer(
         prevLen: prevLen,
+        len: len,
         neurons: constantMatrix(len, 1, 0.float64),
         biases: constantMatrix(len, 1, 0.float64),
         d: constantMatrix(len, 1, 0.float64),
@@ -74,7 +76,7 @@ method calculateActivation*(self: Layer, prev: AbsLayer) =
     self.d = input.map(dSigmoid)
 
 proc run*(self: NeuralNetwork, input: seq[byte]): Option[Vector[float64]] =
-    if input.len != self.layers[0].neurons.column(0).len:
+    if input.len != self.layers[0].len:
         return none[Vector[float64]]() # We cannot do anything if input length differ
     # Set the input layer
     for i, b in input:
@@ -90,7 +92,7 @@ method backPropagate*(self: AbsLayer, prev: AbsLayer, target: seq[float64], step
     return @[]
 # Implementation for a normal NN layer
 method backPropagate*(self: Layer, prev: AbsLayer, target: seq[float64], step: float64): seq[float64] =
-    let selfLen = self.neurons.column(0).len
+    let selfLen = self.len
     newSeq(result, self.prevLen)
     for i in 0..(self.prevLen - 1):
         result[i] = 0
@@ -125,7 +127,7 @@ method backPropagate*(self: Layer, prev: AbsLayer, target: seq[float64], step: f
         result[i] = prev.neurons[i, 0] + result[i] / selfLen.float64
 
 proc train*(self: NeuralNetwork, step: float64, sample: Sample): float64 =
-    let outLen = self.layers[self.layers.len - 1].neurons.column(0).len
+    let outLen = self.layers[self.layers.len - 1].len
     var target: seq[float64]
     newSeq(target, outLen)
     let predict = self.run(sample.image).get()
