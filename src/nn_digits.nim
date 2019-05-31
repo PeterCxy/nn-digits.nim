@@ -13,13 +13,15 @@ proc main() =
     let network = makeNeuralNetwork(28 * 28, 48, 24, 10)
     echo "Loading training data..."
     let data = parseJson(readFile("../data/mnist_handwritten_train.json"))
-    let dataSet = to(data, DataSet)
+    var dataSet = to(data, DataSet)
     echo "Loading testing data..."
     let testData = parseJson(readFile("../data/mnist_handwritten_test.json"))
     let testDataSet = to(testData, DataSet)
     let size = dataSet.len
     let testSize = testDataSet.len
     for epoch in 0..max_epochs:
+        echo "Shuffling data set..."
+        shuffle(dataSet)
         for i in 0..(size - 1):
             let loss = network.train(0.1, dataSet[i])
             stdout.eraseLine()
