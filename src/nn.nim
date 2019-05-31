@@ -3,6 +3,8 @@ import neo
 import options, sugar, math
 
 type
+    LayerType* = enum
+        Normal
     # Abstract definition of a layer in neural network
     AbsLayer = ref object of RootObj
         # prevLen = 0 means it is input layer
@@ -36,14 +38,17 @@ proc makeLayer(len: int; prevLen: int): Layer =
             some(randomMatrix(len, prevLen, 0.1, rowMajor))
     )
 
-proc makeNeuralNetwork*(layerSizes: varargs[int]): NeuralNetwork =
+proc makeNeuralNetwork*(layerSizes: varargs[(LayerType, seq[int])]): NeuralNetwork =
     var layers: seq[AbsLayer]
     newSeq(layers, layerSizes.len)
     result = NeuralNetwork(layers: layers)
     var prevLen = 0
-    for i, size in layerSizes:
-        result.layers[i] = makeLayer(size, prevLen)
-        prevLen = size
+    for i, (t, sizes) in layerSizes:
+        result.layers[i] = if t == LayerType.Normal:
+            makeLayer(sizes[0], prevLen)
+        else:
+            quit "wtf"
+        prevLen = sizes[0]
 
 proc sigmoid(x: float64): float64 = 1.float64 / ((-x).exp + 1.float64)
 proc dSigmoid(x: float64): float64 = sigmoid(x) * (1.float64 - sigmoid(x))
