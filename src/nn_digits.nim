@@ -10,7 +10,7 @@ proc main() =
     echo "Iniatilizing randomness..."
     randomize(int64(epochTime() * 1000))
     echo "Starting up..."
-    let network = makeNeuralNetwork(28 * 28, 16, 16, 10)
+    let network = makeNeuralNetwork(28 * 28, 48, 24, 10)
     echo "Loading training data..."
     let data = parseJson(readFile("../data/mnist_handwritten_train.json"))
     let dataSet = to(data, DataSet)
