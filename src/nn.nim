@@ -59,14 +59,14 @@ method calculateActivation*(self: AbsLayer, prev: AbsLayer) {.base.} =
 method calculateActivation*(self: Layer, prev: AbsLayer) =
     if self.prevLen == 0:
         return # We cannot propagate for input layer
-    self.neurons = (self.weights.get() * prev.neurons + self.biases)
+    # Calculate purely the weighted sum
+    let input = (self.weights.get() * prev.neurons + self.biases)
         .map((x) => x / self.prevLen.float64)
-        .map(sigmoid) # Sigmoid Rectifier
+    # Put through rectifier
+    self.neurons = input.map(sigmoid) # Sigmoid Rectifier
     # Calculate the derivative of the output in terms of input (weighted sum of previous layer)
     # i.e. the derivative of sigmoid
-    self.d = (self.weights.get() * prev.neurons + self.biases)
-        .map((x) => x / self.prevLen.float64)
-        .map(dSigmoid)
+    self.d = input.map(dSigmoid)
 
 proc run*(self: NeuralNetwork, input: seq[byte]): Option[Vector[float64]] =
     if input.len != self.layers[0].neurons.column(0).len:
