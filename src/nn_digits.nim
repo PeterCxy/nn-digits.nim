@@ -12,8 +12,9 @@ proc main() =
     echo "Starting up..."
     let network = makeNeuralNetwork(
         (LayerType.Normal, @[28 * 28]), 
-        (LayerType.Normal, @[128]),
-        (LayerType.Normal, @[64]),
+        #(LayerType.Normal, @[128]),
+        (LayerType.Convolution, @[16, 7, 28]),
+        (LayerType.Normal, @[16]),
         (LayerType.Normal, @[10]))
     echo "Loading training data..."
     let data = parseJson(readFile("../data/mnist_handwritten_train.json"))
@@ -27,7 +28,7 @@ proc main() =
         echo "Shuffling data set..."
         shuffle(dataSet)
         for i in 0..(size - 1):
-            let loss = network.train(0.1, dataSet[i])
+            let loss = network.train(0.25, dataSet[i])
             stdout.eraseLine()
             stdout.write &"Epoch [{epoch}]: progress [{i}/{size}], loss = {loss}"
             stdout.flushFile()
