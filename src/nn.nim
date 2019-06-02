@@ -56,7 +56,8 @@ proc makeLayer(len: int; prevLen: int): Layer =
             some(randomMatrix(len, prevLen, 0.1, rowMajor))
     )
 
-proc makeConvolutionLayer(filterCount: int; filterSize: int; prevSize: int): ConvolutionLayer =
+proc makeConvolutionLayer(filterCount: int; filterSize: int; prevLen: int): ConvolutionLayer =
+    let prevSize = prevLen.float32.sqrt.int
     let len = filterCount * (prevSize - filterSize + 1) * (prevSize - filterSize + 1)
     let filterLen = filterSize * filterSize
     var filterWeights: seq[Vector[float64]]
@@ -65,7 +66,7 @@ proc makeConvolutionLayer(filterCount: int; filterSize: int; prevSize: int): Con
         filterWeights[i] = randomVector(filterLen, 0.1)
     return ConvolutionLayer(
         prevSize: prevSize,
-        prevLen: prevSize * prevSize,
+        prevLen: prevLen,
         filterSize: filterSize,
         filterLen: filterLen,
         filterCount: filterCount,
@@ -85,7 +86,7 @@ proc makeNeuralNetwork*(layerSizes: varargs[(LayerType, seq[int])]): NeuralNetwo
         result.layers[i] = if t == LayerType.Normal:
             makeLayer(sizes[0], prevLen)
         elif t == LayerType.Convolution:
-            makeConvolutionLayer(sizes[0], sizes[1], sizes[2])
+            makeConvolutionLayer(sizes[0], sizes[1], prevLen)
         else:
             quit "wtf"
         prevLen = result.layers[i].len
@@ -122,6 +123,7 @@ method calculateActivation*(self: ConvolutionLayer, prev: AbsLayer) =
     # We have to compute the value individually for each neuron
     for i in 0..(self.filterCount - 1):
         let filterW = self.filterWeights[i]
+        let bias = self.biases[i, 0]
         for x in 0..(maxPos - 1):
             for y in 0..(maxPos - 1):
                 let startX = x# * self.filterSize
@@ -132,7 +134,7 @@ method calculateActivation*(self: ConvolutionLayer, prev: AbsLayer) =
                         let offset2 = k * self.filterSize + j
                         let offset3 = k * self.prevSize + j
                         patch[offset2] = prev.neurons[offset + offset3, 0]
-                input[y * lineLen + i * maxPos + x, 0] = patch * filterW
+                input[y * lineLen + i * maxPos + x, 0] = patch * filterW + bias
     self.neurons = input.map(sigmoid)
     self.d = input.map(dSigmoid)
 
@@ -189,9 +191,15 @@ method backPropagate*(self: Layer, prev: AbsLayer, target: seq[float64], step: f
 
 # Implementation for a convolutional NN layer
 method backPropagate*(self: ConvolutionLayer, prev: AbsLayer, target: seq[float64], step: float64): seq[float64] =
+    var prevCellTimes: seq[int]
+    newSeq(prevCellTimes, self.prevLen)
+    newSeq(result, self.prevLen)
+    for i in 0..(self.prevLen - 1):
+        result[i] = 0
+        prevCellTimes[i] = 0
     let maxPos = self.prevSize - self.filterSize + 1
     let lineLen = self.filterCount * maxPos
-    #let numPatches = maxPos * maxPos
+    let numPatches = maxPos * maxPos
     for i in 0..(self.len - 1):
         let x = i mod lineLen
         let y = floor(i / lineLen).int
@@ -201,17 +209,20 @@ method backPropagate*(self: ConvolutionLayer, prev: AbsLayer, target: seq[float6
         let dEdO = dCrossEntropy(target[i], self.neurons[i, 0])
         let dOdO: float64 = self.d[i, 0]
         let dEdOdOdO: float64 = dEdO * dOdO
-        # TODO: Implement bias for CNN
-        #self.biases[i, 0] -= step * dEdOdOdO
+        self.biases[filterIndex, 0] -= step * dEdOdOdO / numPatches.float64 / self.filterLen.float64
         for j in 0..(self.filterSize - 1):
             for k in 0..(self.filterSize - 1):
                 let prevX = filterOutX + j
                 let prevY = filterOutY + k
                 let prevOffset = prevY * self.prevSize + prevX
                 let dW = dEdOdOdO * prev.neurons[prevOffset, 0]
-                self.filterWeights[filterIndex][k * self.filterSize + j] -= step * dW
-                # TODO: Implement propagation to the previous layer for CNN.
-                # Currently it assumes the previous layer must be input so no changes is done
+                prevCellTimes[prevOffset] += 1
+                result[prevOffset] -= dEdOdOdO * self.filterWeights[filterIndex][k * self.filterSize + j]
+                self.filterWeights[filterIndex][k * self.filterSize + j] -= step * dW / numPatches.float64
+    for i in 0..(self.prevLen - 1):
+        # TODO: This doesn't work. Figure out how to correctly connect two convolution
+        # layers together.
+        result[i] = prev.neurons[i, 0] + result[i] / prevCellTimes[i].float64
 
 proc train*(self: NeuralNetwork, step: float64, sample: Sample): float64 =
     let outLen = self.layers[self.layers.len - 1].len
