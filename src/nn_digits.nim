@@ -12,7 +12,8 @@ proc main() =
     echo "Starting up..."
     let network = makeNeuralNetwork(
         (LayerType.Normal, @[28 * 28]), 
-        (LayerType.Convolution, @[16, 7]),
+        (LayerType.Convolution, @[16, 7, 28]),
+        (LayerType.Convolution, @[8, 3, 22]), # 22 = 28 - 7 + 1 (prevSizeY)
         (LayerType.Normal, @[16]),
         (LayerType.Normal, @[10]))
     echo "Loading training data..."
