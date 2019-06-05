@@ -200,6 +200,10 @@ method backPropagate*(self: ConvolutionLayer, prev: AbsLayer, target: seq[float6
     for i in 0..(self.prevLen - 1):
         result[i] = 0
         prevCellTimes[i] = 0
+    var dEdOs = constantMatrix(self.len, 1, 0.float64)
+    for i in 0..(self.len - 1):
+        dEdOs[i, 0] = dCrossEntropy(target[i], self.neurons[i, 0])
+    var dEdOdOdOs = dEdOs |*| self.d
     let maxPosX = self.prevSizeX - self.filterSize + 1
     let maxPosY = self.prevSizeY - self.filterSize + 1
     let lineLen = self.filterCount * maxPosX
@@ -210,10 +214,10 @@ method backPropagate*(self: ConvolutionLayer, prev: AbsLayer, target: seq[float6
         let filterIndex = floor(x / maxPosX).int
         let filterOutX = x mod maxPosX
         let filterOutY = y
-        let dEdO = dCrossEntropy(target[i], self.neurons[i, 0])
-        let dOdO: float64 = self.d[i, 0]
-        let dEdOdOdO: float64 = dEdO * dOdO
+        let dEdOdOdO: float64 = dEdOdOdOs[i, 0]
         self.biases[filterIndex, 0] -= step * dEdOdOdO / numPatches.float64 / self.filterLen.float64
+        # TODO: Rewrite this to loop over prevOffset instead of filterSize.
+        # This way we can parallelize this patch of code
         for j in 0..(self.filterSize - 1):
             for k in 0..(self.filterSize - 1):
                 let prevX = filterOutX + j
@@ -224,8 +228,6 @@ method backPropagate*(self: ConvolutionLayer, prev: AbsLayer, target: seq[float6
                 result[prevOffset] -= dEdOdOdO * self.filterWeights[filterIndex][k * self.filterSize + j]
                 self.filterWeights[filterIndex][k * self.filterSize + j] -= step * dW / numPatches.float64
     for i in 0..(self.prevLen - 1):
-        # TODO: This doesn't work. Figure out how to correctly connect two convolution
-        # layers together.
         result[i] = prev.neurons[i, 0] + result[i] / prevCellTimes[i].float64
 
 proc train*(self: NeuralNetwork, step: float64, sample: Sample): float64 =
