@@ -13,8 +13,8 @@ proc main() =
     let network = makeNeuralNetwork(
         (LayerType.Normal, @[28 * 28]), 
         (LayerType.Convolution, @[16, 7, 28]),
-        (LayerType.Convolution, @[8, 3, 22]), # 22 = 28 - 7 + 1 (prevSizeY)
-        (LayerType.Normal, @[16]),
+        (LayerType.Convolution, @[16, 3, 22]), # 22 = 28 - 7 + 1 (prevSizeY)
+        (LayerType.Normal, @[32]),
         (LayerType.Normal, @[10]))
     echo "Loading training data..."
     let data = parseJson(readFile("../data/mnist_handwritten_train.json"))

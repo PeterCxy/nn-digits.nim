@@ -159,33 +159,36 @@ method backPropagate*(self: Layer, prev: AbsLayer, target: seq[float64], step: f
     newSeq(result, self.prevLen)
     for i in 0..(self.prevLen - 1):
         result[i] = 0
+    # Note: weighted sum is activation BEFORE the sigmoid function
+    # Derivative of loss function in terms of the activation of every neuron
+    var dEdOs = constantMatrix(selfLen, 1, 0.float64)
     for i in 0..(selfLen - 1):
-        # Note: weighted sum is activation BEFORE the sigmoid function
-        # Derivative of loss function in terms of the activation of the current neuron
-        let dEdO = dCrossEntropy(target[i], self.neurons[i, 0])
-        # Derivative of the activation in terms of its input (weighted sum of previous layer)
-        # i.e. the derivative of the sigmoid function (calculated along with the activation)
-        let dOdO: float64 = self.d[i, 0]
-        let dEdOdOdO: float64 = dEdO * dOdO
-        # Change in bias should be the previous two derivatives
-        # times the derivative of the weighted sum against the
-        # bias, which is basically 1. Note that biases do not
-        # directly correlate to one specific neuron in the previous
-        # layer, so we just do it here.
-        self.biases[i, 0] -= step * dEdOdOdO
+        dEdOs[i, 0] = dCrossEntropy(target[i], self.neurons[i, 0])
+    # Derivative of the activation in terms of its input (weighted sum of previous layer)
+    # i.e. the derivative of the sigmoid function (calculated along with the activation)
+    # times the previous derivative
+    var dEdOdOdOs = dEdOs |*| self.d
+    # Change in bias should be the previous two derivatives
+    # times the derivative of the weighted sum against the
+    # bias, which is basically 1. Note that biases do not
+    # directly correlate to one specific neuron in the previous
+    # layer, so we just do it here.
+    self.biases -= step * dEdOdOdOs
+    for i in 0..(selfLen - 1):
+        let dEdOdOdO = dEdOdOdOs[i, 0]
         for j in 0..(self.prevLen - 1):
             # Calculate changes in terms of all the partial derivatives
             # prev.neurons[j, 0] is the derivative of the weighted sum
             # in terms of the activation of neuron j in previous layer
             let dW = dEdOdOdO * prev.neurons[j, 0]
+            #let dW = dWs[j]
             # Change previous layer's activation proportional to weight
             # the weight is the derivative of the weighted sum against
             # the weight applied by the current neuron to neuron j in previous layer
             result[j] -= dEdOdOdO * self.weights.get()[i, j]
             # Change weight proportional to activation
             self.weights.get()[i, j] -= step * (dW)
-            
-            #echo result[j]
+
     for i in 0..(self.prevLen - 1):
         result[i] = prev.neurons[i, 0] + result[i] / selfLen.float64
 
